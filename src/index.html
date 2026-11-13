@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mesh Align</title>
+<style>
+  :root {
+    --bg: #121418;
+    --panel: #1a1d23;
+    --panel-2: #22262e;
+    --line: #2e333c;
+    --text: #e6e8eb;
+    --muted: #9aa1ac;
+    --accent: #3b82f6;
+    --accent-2: #2563eb;
+    --warn: #f59e0b;
+    --error: #f87171;
+    --ok: #4ade80;
+    --radius: 6px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+  }
+  #app { display: flex; height: 100%; }
+  #panel {
+    width: 372px; flex: none; overflow-y: auto; background: var(--panel);
+    border-right: 1px solid var(--line); padding: 14px 14px 40px;
+  }
+  #view { position: relative; flex: 1; min-width: 0; }
+  #c { display: block; width: 100%; height: 100%; outline: none; touch-action: none; }
+  @media (max-width: 760px) {
+    #app { flex-direction: column; }
+    #panel { width: 100%; height: 48%; border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+
+  header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+  h1 { font-size: 16px; margin: 0; letter-spacing: .2px; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  section { border-top: 1px solid var(--line); padding: 12px 0; }
+  h2 { font-size: 13px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  .step {
+    display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--panel-2); border: 1px solid var(--line); font-size: 11px; color: var(--muted);
+  }
+  p { margin: 6px 0; }
+  .muted { color: var(--muted); }
+  .hint { color: var(--muted); font-size: 12px; }
+  .warn { color: var(--warn); }
+  .error { color: var(--error); }
+
+  button, select, input {
+    font: inherit; color: var(--text); background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  button { padding: 5px 10px; cursor: pointer; white-space: nowrap; }
+  button:hover:not(:disabled) { border-color: #4a515d; background: #2a2f38; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent-2); border-color: var(--accent-2); color: #fff; }
+  button.primary:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); }
+  button.on { background: #1e3a8a; border-color: var(--accent); }
+  button.icon { padding: 3px 6px; line-height: 1; color: var(--muted); }
+  button.icon:hover { color: var(--text); }
+  select { padding: 4px 6px; max-width: 100%; }
+  input[type=number] { width: 64px; padding: 4px 6px; }
+  input[type=checkbox] { accent-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .add-row { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
+  .add-row button { padding: 5px 8px; }
+
+  .feat {
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 7px 8px; margin-bottom: 6px;
+    background: var(--panel-2);
+  }
+  .feat.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .feat-head { display: flex; align-items: center; gap: 6px; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; background: var(--c); flex: none; }
+  .feat-name { font-weight: 600; }
+  .feat-type { color: var(--muted); font-size: 11px; }
+  .grow { flex: 1; }
+  .feat-stats { color: var(--muted); font-size: 12px; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .feat-par { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
+  .feat-par select { flex: 1; min-width: 0; padding: 2px 4px; font-size: 12px; }
+  .feat-tools { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+  .feat-tools .row button { padding: 3px 8px; }
+  .empty-hint { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+
+  #pick-tools { background: #161920; border: 1px dashed var(--line); border-radius: var(--radius); padding: 8px; }
+  #pick-tools[hidden] { display: none; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; border-right: 1px solid var(--line); padding: 4px 8px; }
+  .seg button:last-child { border-right: 0; }
+  .seg button.on { background: #1e3a8a; }
+  .fields { display: grid; grid-template-columns: auto 1fr; gap: 6px 8px; align-items: center; margin-top: 8px; }
+  .fields > label { color: var(--muted); }
+  .fields .row { gap: 4px; }
+  .fields .row button { padding: 3px 8px; }
+  #status kbd { font-size: 10px; }
+
+  .align-grid { display: grid; grid-template-columns: 74px 1fr; gap: 7px 8px; align-items: center; }
+  .align-grid > label { color: var(--muted); align-self: start; padding-top: 5px; }
+  .align-grid .row select { flex: 1; min-width: 0; }
+  .align-grid .row select.narrow { flex: none; width: 58px; }
+  .origin-row { display: grid; grid-template-columns: 1fr; gap: 4px; }
+  .offset-row input { width: 58px; }
+  .offset-row span { color: var(--muted); }
+  #notes p { font-size: 12px; margin: 4px 0; }
+  #readout { margin-top: 8px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  #readout table { width: 100%; border-collapse: collapse; }
+  #readout td { padding: 3px 4px; border-top: 1px solid var(--line); vertical-align: top; }
+  #readout td:first-child { white-space: nowrap; }
+  #readout .k { color: var(--muted); }
+  .check { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; margin-top: 10px; }
+  .export-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .units-row { margin-bottom: 8px; }
+  .simplify { margin-bottom: 10px; }
+  .simplify > .check { margin-top: 0; }
+  #simp-opts .fields { margin-top: 6px; }
+  #simp-opts .check { margin-top: 6px; }
+
+  #empty {
+    position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
+    color: var(--muted); font-size: 15px; text-align: center;
+  }
+  #empty .box { border: 2px dashed var(--line); border-radius: 12px; padding: 36px 44px; }
+  #empty[hidden] { display: none; }
+  #view.dragging #empty .box { border-color: var(--accent); color: var(--text); }
+  #viewbar {
+    position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end;
+  }
+  #viewbar button { background: rgba(26, 29, 35, .85); padding: 4px 9px; font-size: 12px; }
+  #status {
+    position: absolute; top: 10px; left: 10px; max-width: calc(100% - 330px);
+    background: rgba(26, 29, 35, .9); border: 1px solid var(--line); border-left: 3px solid var(--c, var(--accent));
+    border-radius: var(--radius); padding: 6px 10px; font-size: 12px;
+  }
+  #status[hidden] { display: none; }
+  #busy {
+    position: absolute; inset: 0; display: grid; place-items: center; background: rgba(10, 12, 15, .55); z-index: 5;
+  }
+  #busy[hidden] { display: none; }
+  #busy .box { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; display: flex; gap: 10px; align-items: center; }
+  .spinner { width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #toast {
+    position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); max-width: 80%;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px;
+    opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 6;
+  }
+  #toast.show { opacity: 1; }
+  #toast.error { border-color: var(--error); }
+  details summary { cursor: pointer; color: var(--muted); }
+  details ol { padding-left: 18px; margin: 6px 0; color: var(--muted); font-size: 12px; }
+  details li { margin-bottom: 4px; }
+  kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; background: var(--panel-2); }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <header>
+      <h1>Mesh Align</h1>
+      <span class="sub">scan → datum frame → CAD</span>
+    </header>
+
+    <section>
+      <div class="row">
+        <button id="btn-open" class="primary">Open scan…</button>
+        <input type="file" id="file" accept=".stl,.obj,.ply" hidden>
+      </div>
+      <p id="file-info" class="hint">STL, OBJ or PLY. You can also drop a file on the view.</p>
+      <details>
+        <summary>How it works</summary>
+        <ol>
+          <li>Add a <b>Plane</b> and click the flat face you want on the XY plane. Each click grows a patch across the flat area.</li>
+          <li>Add a <b>Circle</b> and click 3+ points around the hole's edge, or a <b>Cylinder</b> and click patches on the hole wall.</li>
+          <li>The datum frame fills in as you go: first plane → Z axis, first hole → origin, next hole or plane → X direction. Change any of it in step 2.</li>
+          <li>Download the aligned STL and import it into Onshape. Its origin and Top plane now match your features.</li>
+        </ol>
+      </details>
+    </section>
+
+    <section>
+      <h2><span class="step">1</span>Reference features</h2>
+      <div class="add-row" id="add-row">
+        <button data-add="plane" title="Flat face: click patches on it">+ Plane</button>
+        <button data-add="circle" title="Hole edge: click 3+ points around the rim">+ Circle</button>
+        <button data-add="cylinder" title="Hole or boss wall: click patches on the curved wall">+ Cylinder</button>
+        <button data-add="line" title="Straight edge: click 2+ points along it">+ Line</button>
+        <button data-add="point" title="A point (several clicks are averaged)">+ Point</button>
+      </div>
+      <div id="feature-list"></div>
+      <div id="pick-tools" hidden>
+        <div class="seg" id="pick-mode">
+          <button data-mode="patch" title="Grow a patch of connected surface from the click">Surface patch</button>
+          <button data-mode="point" title="Add exactly the clicked point">Single point</button>
+          <button data-mode="boundary" title="Snap to an open edge loop in the scan, e.g. an unfilled hole">Open edge</button>
+        </div>
+        <div class="fields">
+          <label for="pick-radius">Radius</label>
+          <div class="row"><input type="number" id="pick-radius" min="0" step="any"><span class="hint">0 = no limit</span></div>
+          <label for="pick-angle">Max angle</label>
+          <div class="row">
+            <input type="number" id="pick-angle" min="1" max="89" step="1"><span class="hint">° from</span>
+            <select id="pick-ref">
+              <option value="seed">clicked point (flat)</option>
+              <option value="neighbor">neighbours (curved)</option>
+            </select>
+          </div>
+          <label for="pick-eraser">Eraser</label>
+          <div class="row">
+            <input type="number" id="pick-eraser" min="0" step="any" title="Eraser brush radius. [ and ] resize it">
+            <button id="pick-erase" title="Clicks and drags on the scan erase points instead of adding them (same as holding Shift)">Erase mode</button>
+          </div>
+        </div>
+        <p class="hint"><kbd>Click</kbd> add · <kbd>Shift</kbd>+drag erase · <kbd>[</kbd> <kbd>]</kbd> eraser size · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Esc</kbd> done</p>
+      </div>
+    </section>
+
+    <section>
+      <h2><span class="step">2</span>Datum frame</h2>
+      <div class="align-grid">
+        <label for="pri-id" title="This feature's normal or axis becomes a coordinate axis">Primary</label>
+        <div class="row">
+          <select id="pri-id"></select>
+          <span class="muted">→</span>
+          <select id="pri-target" class="narrow"></select>
+          <button id="pri-flip" class="icon" title="Flip">⇅</button>
+        </div>
+        <span></span><p id="pri-hint" class="hint" style="margin:0"></p>
+
+        <label for="sec-id" title="Sets the rotation about the primary axis">Clocking</label>
+        <div class="row">
+          <select id="sec-id"></select>
+          <span class="muted">→</span>
+          <select id="sec-target" class="narrow"></select>
+          <button id="sec-flip" class="icon" title="Flip">⇅</button>
+        </div>
+        <span></span>
+        <div class="row">
+          <span class="hint">using</span>
+          <select id="sec-use" title="How the clocking feature sets the direction">
+            <option value="auto">auto</option>
+            <option value="direction">use its normal / axis</option>
+            <option value="toward">point from origin toward it</option>
+          </select>
+        </div>
+
+        <label title="The origin is where these features meet, in priority order">Origin</label>
+        <div class="origin-row">
+          <select class="origin" data-k="0"></select>
+          <select class="origin" data-k="1"></select>
+          <select class="origin" data-k="2"></select>
+        </div>
+
+        <label for="angle">Rotate</label>
+        <div class="row">
+          <input type="number" id="angle" step="any" value="0"><span class="hint">° about primary</span>
+          <button id="rot90" title="Rotate 90°">+90°</button>
+        </div>
+
+        <label>Offset</label>
+        <div class="row offset-row">
+          <span>X</span><input type="number" step="any" data-off="0" value="0">
+          <span>Y</span><input type="number" step="any" data-off="1" value="0">
+          <span>Z</span><input type="number" step="any" data-off="2" value="0">
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="preview" checked> Show aligned</label>
+      <div id="notes"></div>
+      <div id="readout"></div>
+    </section>
+
+    <section>
+      <h2><span class="step">3</span>Export</h2>
+      <div class="row units-row">
+        <label for="units" class="muted">Scan units</label>
+        <select id="units" title="What one unit in the scan file means">
+          <option value="mm">millimeters</option>
+          <option value="cm">centimeters</option>
+          <option value="m">meters</option>
+          <option value="in">inches</option>
+        </select>
+      </div>
+      <div class="simplify">
+        <label class="check"><input type="checkbox" id="simp-on"> Simplify the STL <span class="hint">(fewer, larger triangles)</span></label>
+        <div id="simp-opts" hidden>
+          <div class="fields">
+            <label for="simp-keep">Keep</label>
+            <div class="row"><input type="number" id="simp-keep" min="0" max="100" step="any"><span class="hint">% of triangles</span></div>
+            <label for="simp-tol">Tolerance</label>
+            <div class="row"><input type="number" id="simp-tol" min="0" step="any" title="Roughly how far the surface may move. 0 = no limit"><span class="hint">0 = no limit</span></div>
+          </div>
+          <label class="check"><input type="checkbox" id="simp-edges"> Show triangle edges</label>
+          <p id="simp-info" class="hint"></p>
+          <p class="hint">Only the downloaded STL is simplified. Flat areas merge into a few large triangles and curves keep their detail. Picking and fits still use the full-resolution scan.</p>
+        </div>
+      </div>
+      <div class="export-row">
+        <button id="btn-stl" class="primary" disabled>Download aligned STL</button>
+        <button id="btn-step" disabled title="Fitted planes, circles and cylinders as real CAD surfaces (lines and points are not included)">Reference surfaces (STEP)</button>
+        <button id="btn-json" disabled title="4×4 matrix and feature positions in the new frame">Transform (JSON)</button>
+      </div>
+      <p class="hint">Onshape: import the STL with the same units as above. The STEP holds your fitted planes, circles and cylinders as real surfaces you can sketch on and mate to. Bring both into one Part Studio; they share coordinates, so the surfaces sit right on the scan.</p>
+    </section>
+  </aside>
+
+  <main id="view">
+    <canvas id="c" tabindex="0"></canvas>
+    <div id="empty"><div class="box">Drop an STL, OBJ or PLY scan here<br><span class="hint">or use Open scan…</span></div></div>
+    <div id="status" hidden></div>
+    <div id="viewbar">
+      <button data-view="iso">Iso</button>
+      <button data-view="top">Top</button>
+      <button data-view="front">Front</button>
+      <button data-view="right">Right</button>
+      <button data-view="bottom">Bottom</button>
+      <button data-view="fit" title="Fit (F)">Fit</button>
+    </div>
+    <div id="busy" hidden><div class="box"><div class="spinner"></div><span id="busy-text"></span></div></div>
+    <div id="toast"></div>
+  </main>
+</div>
+<!-- APP_SCRIPT -->
+</body>
+</html>

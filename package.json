@@ -1,0 +1,16 @@
+{
+  "name": "mesh-align",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Align 3D scan meshes to a datum coordinate system for CAD import",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "three": "0.186.1",
+    "three-mesh-bvh": "0.9.16"
+  }
+}
